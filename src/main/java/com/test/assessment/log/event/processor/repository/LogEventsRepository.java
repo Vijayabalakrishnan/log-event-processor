@@ -1,4 +1,4 @@
-package com.test.assessment.log.event.processor;
+package com.test.assessment.log.event.processor.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

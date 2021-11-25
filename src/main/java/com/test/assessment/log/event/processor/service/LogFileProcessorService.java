@@ -3,7 +3,6 @@ package com.test.assessment.log.event.processor.service;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -16,11 +15,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.google.gson.Gson;
-import com.test.assessment.log.event.processor.LogEventsRepository;
 import com.test.assessment.log.event.processor.constants.EventState;
 import com.test.assessment.log.event.processor.entity.LogEvents;
-import com.test.assessment.log.event.processor.exception.ValidationException;
 import com.test.assessment.log.event.processor.model.LogEvent;
+import com.test.assessment.log.event.processor.repository.LogEventsRepository;
 
 @Service
 public class LogFileProcessorService implements FileProcessorService {
@@ -50,44 +48,46 @@ public class LogFileProcessorService implements FileProcessorService {
 
 		LOGGER.debug("File Path: {}", filePath);
 
-		if (StringUtils.isNotBlank(filePath)) {
+		LogEvent logEvent = null;
+		LineIterator lineIterator = null;
 
-			LogEvent logEvent = null;
-			LineIterator lineIterator = null;
+		try {
 
-			try {
+			lineIterator = FileUtils.lineIterator(new File(filePath), "UTF-8");
 
-				lineIterator = FileUtils.lineIterator(new File(filePath), "UTF-8");
+			while (lineIterator.hasNext()) {
 
-				while (lineIterator.hasNext()) {
+				String line = lineIterator.nextLine();
+				// System.out.println(line);
 
-					String line = lineIterator.nextLine();
-					// System.out.println(line);
+				logEvent = parseLogLine(line);
 
-					logEvent = parseLogLine(line);
-
-					if (logEvent != null) {
-						processEvent(parseLogLine(line));
-					}
+				if (logEvent != null) {
+					processEvent(parseLogLine(line));
 				}
-
-				List<LogEvents> events = this.logEventsRepository.findAll();
-				events.forEach(event -> LOGGER.info(event.toString()));
-
-				logOrphanEvents();
-
-			} catch (IOException e) {
-				LOGGER.error("Exception while reading the file.", e);
-			} finally {
-				LineIterator.closeQuietly(lineIterator);
 			}
-		} else {
-			throw new ValidationException("Input log file must be valid");
+
+			logOrphanEvents();
+
+		} catch (IOException e) {
+			LOGGER.error("Exception while reading the file.", e);
+		} finally {
+			LineIterator.closeQuietly(lineIterator);
 		}
 	}
 
 	private LogEvent parseLogLine(String line) {
-		return this.gson.fromJson(line, LogEvent.class);
+
+		LogEvent logEvent = null;
+
+		try {
+
+			logEvent = this.gson.fromJson(line, LogEvent.class);
+		} catch (Exception e) {
+			LOGGER.error("Unable to parse the file {}", line, e);
+		}
+
+		return logEvent;
 	}
 
 	private void processEvent(LogEvent logEvent) {
@@ -116,14 +116,20 @@ public class LogFileProcessorService implements FileProcessorService {
 
 	private void storeLogEvent(LogEvent storedEvent, LogEvent newEvent) {
 
+		String eventId = storedEvent.getId();
 		int eventDuration = getEventDuration(storedEvent, newEvent).intValue();
 		boolean hasAlert = eventDuration > this.alertThreshold;
 		String eventType = (storedEvent.getType() != null) ? storedEvent.getType() : newEvent.getType();
 		String host = (storedEvent.getHost() != null) ? storedEvent.getHost() : newEvent.getHost();
 
-		LOGGER.debug("Event Duration for id {} is {}", storedEvent.getId(), eventDuration);
+		LOGGER.debug("Event id {}, type {}, duration {}, host {}, alert {}", eventId, eventType, eventDuration, host,
+				hasAlert);
 
-		this.logEventsRepository.save(new LogEvents(storedEvent.getId(), eventType, eventDuration, host, hasAlert));
+		try {
+			this.logEventsRepository.save(new LogEvents(eventId, eventType, eventDuration, host, hasAlert));
+		} catch (Exception e) {
+			LOGGER.error("Exception while inserting the record: ", e);
+		}
 	}
 
 	private Long getEventDuration(LogEvent existingEvent, LogEvent newEvent) {

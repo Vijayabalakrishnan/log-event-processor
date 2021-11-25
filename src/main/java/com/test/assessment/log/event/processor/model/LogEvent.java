@@ -14,6 +14,15 @@ public class LogEvent {
 
 	private EventState state;
 
+	public LogEvent(String id, String type, Long timestamp, String host, EventState state) {
+
+		this.id = id;
+		this.type = type;
+		this.timestamp = timestamp;
+		this.host = host;
+		this.state = state;
+	}
+
 	public String getId() {
 		return id;
 	}

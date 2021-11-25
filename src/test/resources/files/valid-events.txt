@@ -1,0 +1,4 @@
+{"id":"test1", "state":"STARTED", "type":"App Log", "host":"127.0.0.0", "timestamp":1637871258}
+{"id":"test1", "state":"FINISHED", "type":"App Log", "timestamp":1637871261}
+{"id":"test2", "state":"FINISHED", "timestamp":1637871265}
+{"id":"test2", "state":"STARTED", "type":"App Log", "timestamp":1637871258}
