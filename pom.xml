@@ -42,6 +42,7 @@
 			<artifactId>junit</artifactId>
 			<scope>test</scope>
 		</dependency>
+
 		<!-- junit-platform-launcher -->
 		<dependency>
 			<groupId>org.junit.platform</groupId>

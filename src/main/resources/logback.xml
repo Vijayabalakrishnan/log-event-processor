@@ -34,15 +34,15 @@
 	</appender>
 
 	<root level="INFO">
-		<appender-ref ref="ConsoleLogAppender" />
+		<appender-ref ref="RollingFileAppender" />
 	</root>
 
 	<logger name="org.springframework.boot" level="INFO" additivity="false">
-		<appender-ref ref="ConsoleLogAppender" />
+		<appender-ref ref="RollingFileAppender" />
 	</logger>
 
 	<logger name="com.test.assessment.log.event.processor" level="DEBUG" additivity="false">
-		<appender-ref ref="ConsoleLogAppender" />
+		<appender-ref ref="RollingFileAppender" />
 	</logger>
 
 </configuration>
