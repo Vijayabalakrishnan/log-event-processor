@@ -33,7 +33,7 @@
 
 ## Prepare Test Data ##
 - Create a log file in text format
-- Please refer log-event-processor/src/test/resources/files/valid-events.txt
+- Please refer ``log-event-processor/src/test/resources/files/valid-events.txt``
 
 ## Run the Jar File ##
 - Open a new command prompt
@@ -41,8 +41,8 @@
 - Copy the command ``java -jar -Dlog.file.path=<path_of_the_log_event_file> log-event-processor.jar`` to a notepad
 - Replace ``<path_of_the_log_event_file>`` with valid path
 - Execute the command in the command prompt
-- You should see the app starts by printing few logs on the screen & after processing the file exits normally
+- Should see the application starts by printing few logs on the screen & after processing the file exits normally
 
 ## Result ##
-- When the app exits normally, you should see a ``logs`` directory and ``app.log`` file created by the app.
-- You should the list of valid events stored in database in DEBUG log
+- When the application exits normally, you should see a ``logs`` directory and ``app.log`` file created by the app.
+- Should see the list of valid events stored in database in DEBUG log
