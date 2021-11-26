@@ -1,6 +1,7 @@
 package com.test.assessment.log.event.processor.service;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,7 +25,7 @@ import com.test.assessment.log.event.processor.repository.LogEventsRepository;
 @RunWith(MockitoJUnitRunner.class)
 public class LogFileProcessorServiceUnitTest {
 
-	FileProcessorService fileProcessorService;
+	LogFileProcessorService logFileProcessorService;
 
 	Gson gson = new Gson();
 
@@ -37,13 +38,13 @@ public class LogFileProcessorServiceUnitTest {
 
 		logEventsRepository = mock(LogEventsRepository.class);
 		logEventsArgumentCaptor = ArgumentCaptor.forClass(LogEvents.class);
-		fileProcessorService = new LogFileProcessorService(4, gson, logEventsRepository);
+		logFileProcessorService = new LogFileProcessorService(4, gson, logEventsRepository);
 	}
 
 	@Test
 	public void testProcessFile_validFile() {
 
-		fileProcessorService.processFile("src/test/resources/files/valid-events.txt");
+		logFileProcessorService.processFile("src/test/resources/files/valid-events.txt");
 
 		verify(logEventsRepository, times(2)).save(logEventsArgumentCaptor.capture());
 		verify(logEventsRepository, times(2)).save(any());
@@ -52,43 +53,66 @@ public class LogFileProcessorServiceUnitTest {
 		assertNotNull(logEvents);
 		verifyLogEvents(logEvents.get(0), "test1", "App Log", "127.0.0.0", 3, false);
 		verifyLogEvents(logEvents.get(1), "test2", "App Log", null, 7, true);
+
+		assertTrue(logFileProcessorService.getLogEventMap().isEmpty());
+		assertTrue(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertTrue(logFileProcessorService.getPersistanceFailedLogEventMap().isEmpty());
 	}
 
 	@Test
 	public void testProcessFile_invalidJsonContent() {
 
-		fileProcessorService.processFile("src/test/resources/files/invalid-json-format-event.txt");
+		logFileProcessorService.processFile("src/test/resources/files/invalid-json-format-event.txt");
 
 		verify(logEventsRepository, times(0)).save(logEventsArgumentCaptor.capture());
 		verify(logEventsRepository, times(0)).save(any());
+
+		assertTrue(logFileProcessorService.getLogEventMap().isEmpty());
+		assertTrue(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertTrue(logFileProcessorService.getPersistanceFailedLogEventMap().isEmpty());
 	}
 
 	@Test
 	public void testProcessFile_invalidEvents() {
 
-		fileProcessorService.processFile("src/test/resources/files/invalid-events.txt");
+		logFileProcessorService.processFile("src/test/resources/files/invalid-events.txt");
 
 		verify(logEventsRepository, times(0)).save(logEventsArgumentCaptor.capture());
 		verify(logEventsRepository, times(0)).save(any());
+
+		assertFalse(logFileProcessorService.getLogEventMap().isEmpty());
+		assertTrue(logFileProcessorService.getLogEventMap().size() == 1);
+		assertFalse(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertTrue(logFileProcessorService.getIgnoredLogEventList().size() == 2);
+		assertTrue(logFileProcessorService.getPersistanceFailedLogEventMap().isEmpty());
 	}
 
 	@Test
 	public void testProcessFile_invalidFilePath() {
 
-		fileProcessorService.processFile("src/test/resources/files/dummy-name.txt");
+		logFileProcessorService.processFile("src/test/resources/files/dummy-name.txt");
 
 		verify(logEventsRepository, times(0)).save(logEventsArgumentCaptor.capture());
 		verify(logEventsRepository, times(0)).save(any());
+
+		assertTrue(logFileProcessorService.getLogEventMap().isEmpty());
+		assertTrue(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertTrue(logFileProcessorService.getPersistanceFailedLogEventMap().isEmpty());
 	}
 
 	@Test
 	public void testProcessFile_saveFailure() {
 
 		doThrow(new RuntimeException()).when(logEventsRepository).save(any(LogEvents.class));
-		fileProcessorService.processFile("src/test/resources/files/valid-events.txt");
+		logFileProcessorService.processFile("src/test/resources/files/valid-events.txt");
 
 		verify(logEventsRepository, times(2)).save(logEventsArgumentCaptor.capture());
 		verify(logEventsRepository, times(2)).save(any());
+
+		assertTrue(logFileProcessorService.getLogEventMap().isEmpty());
+		assertTrue(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertFalse(logFileProcessorService.getPersistanceFailedLogEventMap().isEmpty());
+		assertTrue(logFileProcessorService.getPersistanceFailedLogEventMap().size() == 2);
 	}
 
 	private void verifyLogEvents(LogEvents logEvents, String id, String type, String host, int duration, boolean hasAlert) {

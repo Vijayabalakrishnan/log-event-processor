@@ -2,7 +2,10 @@ package com.test.assessment.log.event.processor.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -33,6 +36,10 @@ public class LogFileProcessorService implements FileProcessorService {
 
 	private Map<String, LogEvent> logEventMap = new HashMap<>();
 
+	private Map<String, List<LogEvent>> persistanceFailedLogEventMap = new HashMap<>();
+
+	private List<LogEvent> ignoredLogEventList = new ArrayList<>();
+
 	@Autowired
 	public LogFileProcessorService(@Value("${alert.threshold:4}") int alertThreshold, Gson gson,
 			LogEventsRepository logEventsRepository) {
@@ -40,6 +47,18 @@ public class LogFileProcessorService implements FileProcessorService {
 		this.gson = gson;
 		this.alertThreshold = alertThreshold;
 		this.logEventsRepository = logEventsRepository;
+	}
+
+	public Map<String, LogEvent> getLogEventMap() {
+		return logEventMap;
+	}
+
+	public Map<String, List<LogEvent>> getPersistanceFailedLogEventMap() {
+		return persistanceFailedLogEventMap;
+	}
+
+	public List<LogEvent> getIgnoredLogEventList() {
+		return ignoredLogEventList;
 	}
 
 	@SuppressWarnings("deprecation")
@@ -99,7 +118,17 @@ public class LogFileProcessorService implements FileProcessorService {
 			LogEvent storedEvent = this.logEventMap.get(eventId);
 			if (storedEvent != null) {
 
-				storeLogEvent(storedEvent, logEvent);
+				try {
+
+					storeLogEvent(storedEvent, logEvent);
+
+				} catch (Exception e) {
+
+					// Save failed events for tracking purpose
+					addToPersistanceFailedMap(storedEvent, logEvent);
+					LOGGER.error("Exception while inserting the record: ", e);
+				}
+
 				// Remove from map to avoid space issues
 				this.logEventMap.remove(eventId);
 
@@ -110,6 +139,8 @@ public class LogFileProcessorService implements FileProcessorService {
 			}
 
 		} else {
+
+			addToIgnoredLogEventList(logEvent);
 			LOGGER.warn("Event Id or Timestamp is null. So ignoring the event");
 		}
 	}
@@ -125,11 +156,7 @@ public class LogFileProcessorService implements FileProcessorService {
 		LOGGER.debug("Event id {}, type {}, duration {}, host {}, alert {}", eventId, eventType, eventDuration, host,
 				hasAlert);
 
-		try {
-			this.logEventsRepository.save(new LogEvents(eventId, eventType, eventDuration, host, hasAlert));
-		} catch (Exception e) {
-			LOGGER.error("Exception while inserting the record: ", e);
-		}
+		this.logEventsRepository.save(new LogEvents(eventId, eventType, eventDuration, host, hasAlert));
 	}
 
 	private Long getEventDuration(LogEvent existingEvent, LogEvent newEvent) {
@@ -137,6 +164,14 @@ public class LogFileProcessorService implements FileProcessorService {
 		return EventState.STARTED.equals(existingEvent.getState())
 				? newEvent.getTimestamp() - existingEvent.getTimestamp()
 				: existingEvent.getTimestamp() - newEvent.getTimestamp();
+	}
+
+	private void addToPersistanceFailedMap(LogEvent logEvent, LogEvent matchingLogEvent) {
+		this.persistanceFailedLogEventMap.put(logEvent.getId(), Arrays.asList(logEvent, matchingLogEvent));
+	}
+
+	private void addToIgnoredLogEventList(LogEvent logEvent) {
+		this.ignoredLogEventList.add(logEvent);
 	}
 
 	private void logOrphanEvents() {
