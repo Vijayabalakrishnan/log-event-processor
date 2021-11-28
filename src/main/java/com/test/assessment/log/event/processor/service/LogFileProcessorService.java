@@ -77,16 +77,18 @@ public class LogFileProcessorService implements FileProcessorService {
 			while (lineIterator.hasNext()) {
 
 				String line = lineIterator.nextLine();
-				// System.out.println(line);
 
 				logEvent = parseLogLine(line);
 
-				if (logEvent != null) {
-					processEvent(parseLogLine(line));
+				if (logEvent != null && isValidLogEvent(logEvent)) {
+					processEvent(logEvent);
+				} else {
+					addToIgnoredLogEventList(logEvent);
 				}
 			}
 
-			logOrphanEvents();
+			// For tracking purpose only
+			logUnprocessedEvents();
 
 		} catch (IOException e) {
 			LOGGER.error("Exception while reading the file.", e);
@@ -109,39 +111,35 @@ public class LogFileProcessorService implements FileProcessorService {
 		return logEvent;
 	}
 
+	private boolean isValidLogEvent(LogEvent logEvent) {
+		return StringUtils.isNotBlank(logEvent.getId()) && logEvent.getTimestamp() != null;
+	}
+
 	private void processEvent(LogEvent logEvent) {
 
 		String eventId = logEvent.getId();
 
-		if (StringUtils.isNotBlank(eventId) && logEvent.getTimestamp() != null) {
+		LogEvent storedEvent = this.logEventMap.get(eventId);
+		if (storedEvent != null) {
 
-			LogEvent storedEvent = this.logEventMap.get(eventId);
-			if (storedEvent != null) {
+			try {
 
-				try {
+				storeLogEvent(storedEvent, logEvent);
 
-					storeLogEvent(storedEvent, logEvent);
+			} catch (Exception e) {
 
-				} catch (Exception e) {
-
-					// Save failed events for tracking purpose
-					addToPersistanceFailedMap(storedEvent, logEvent);
-					LOGGER.error("Exception while inserting the record: ", e);
-				}
-
-				// Remove from map to avoid space issues
-				this.logEventMap.remove(eventId);
-
-			} else {
-
-				// Event Id doesn't exists in Map
-				this.logEventMap.put(eventId, logEvent);
+				// Save failed events for tracking purpose
+				addToPersistanceFailedMap(storedEvent, logEvent);
+				LOGGER.error("Exception while inserting the record: ", e);
 			}
+
+			// Remove from map after processing
+			this.logEventMap.remove(eventId);
 
 		} else {
 
-			addToIgnoredLogEventList(logEvent);
-			LOGGER.warn("Event Id or Timestamp is null. So ignoring the event");
+			// Event Id doesn't exists in Map
+			this.logEventMap.put(eventId, logEvent);
 		}
 	}
 
@@ -174,11 +172,18 @@ public class LogFileProcessorService implements FileProcessorService {
 		this.ignoredLogEventList.add(logEvent);
 	}
 
-	private void logOrphanEvents() {
+	private void logUnprocessedEvents() {
 
 		if (!this.logEventMap.isEmpty()) {
-
 			LOGGER.warn("Couldn't find matching event for id(s) {}", this.logEventMap.keySet());
+		}
+
+		if (!this.persistanceFailedLogEventMap.isEmpty()) {
+			LOGGER.warn("Failed to persist event with id(s) {}", this.persistanceFailedLogEventMap.keySet());
+		}
+
+		if (!this.ignoredLogEventList.isEmpty()) {
+			LOGGER.warn("Invalid events(s) {}", this.ignoredLogEventList);
 		}
 	}
 }

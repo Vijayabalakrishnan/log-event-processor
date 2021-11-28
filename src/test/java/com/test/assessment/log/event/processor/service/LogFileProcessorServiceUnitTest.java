@@ -68,7 +68,8 @@ public class LogFileProcessorServiceUnitTest {
 		verify(logEventsRepository, times(0)).save(any());
 
 		assertTrue(logFileProcessorService.getLogEventMap().isEmpty());
-		assertTrue(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertFalse(logFileProcessorService.getIgnoredLogEventList().isEmpty());
+		assertTrue(logFileProcessorService.getIgnoredLogEventList().size() == 1);
 		assertTrue(logFileProcessorService.getPersistanceFailedLogEventMap().isEmpty());
 	}
 
